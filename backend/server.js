@@ -279,11 +279,14 @@ app.post('/api/analyze', (req, res) => {
 
     const analyzeCliPath = path.join(pythonCoreDir, 'analyze_cli.py');
     const osintCliPath = path.join(pythonCoreDir, 'osint_cli.py');
+    const forensicsCliPath = path.join(pythonCoreDir, 'forensics_cli.py');
     let spawnArgs;
     if (type === 'exif' && fs.existsSync(analyzeCliPath)) {
         spawnArgs = [analyzeCliPath, filePath, '--only', type, '--quiet', ...extraArgs];
     } else if (type === 'osint' && fs.existsSync(osintCliPath)) {
         spawnArgs = [osintCliPath, filePath];
+    } else if (type === 'forensics' && fs.existsSync(forensicsCliPath)) {
+        spawnArgs = [forensicsCliPath, filePath];
     } else {
         spawnArgs = [mainPyPath, filePath, '--only', type, '--format', 'json', '--quiet', ...extraArgs];
     }
@@ -295,12 +298,18 @@ app.post('/api/analyze', (req, res) => {
 
     let stdoutData = '';
     let stderrData = '';
-    const analyzeTimeoutMs = 180000;
+    const analyzeTimeoutByType = {
+        forensics: 300000,
+        location: 300000,
+        osint: 240000,
+    };
+    const analyzeTimeoutMs = analyzeTimeoutByType[type] || 180000;
     const analyzeTimer = setTimeout(() => {
         pythonProcess.kill();
         if (!res.headersSent) {
+            const mins = Math.round(analyzeTimeoutMs / 60000);
             res.status(504).json({
-                error: 'Analiz vaxtı keçdi (3 dəq). Render Free planda yenidən cəhd edin.',
+                error: `Analiz vaxtı keçdi (${mins} dəq). Render Free planda yenidən cəhd edin.`,
                 type,
             });
         }

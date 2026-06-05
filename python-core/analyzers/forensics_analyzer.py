@@ -8,6 +8,14 @@ from utils.artifact_utils import path_to_filename, ela_manipulation_score
 warnings.filterwarnings("ignore")
 
 
+def _light_forensics() -> bool:
+    if os.environ.get('LIGHT_FORENSICS', '').strip().lower() in ('0', 'false', 'no'):
+        return False
+    if os.environ.get('LIGHT_FORENSICS', '').strip().lower() in ('1', 'true', 'yes'):
+        return True
+    return os.environ.get('RENDER', '').strip().lower() in ('true', '1')
+
+
 def generate_ela(filepath, output_dir=None):
     """Error Level Analysis (ELA)."""
     try:
@@ -123,7 +131,12 @@ def analyze_forensics(filepath):
         "artifacts": [],
     }
 
-    print("  [i] Kriminalistika analizi başlayır...", file=sys.stderr)
+    light = _light_forensics()
+    print(
+        "  [i] Kriminalistika analizi başlayır..."
+        + (" (yüngül rejim)" if light else ""),
+        file=sys.stderr,
+    )
 
     ela_result = generate_ela(filepath)
     if ela_result.get("status") == "success":
@@ -145,11 +158,14 @@ def analyze_forensics(filepath):
         if enh_fn:
             result["artifacts"].append(enh_fn)
 
-    try:
-        from analyzers.steganography_analyzer import analyze_steganography
-        result["steganography"] = analyze_steganography(filepath)
-    except Exception as e:
-        result["steganography"] = {"error": str(e)}
+    if not light:
+        try:
+            from analyzers.steganography_analyzer import analyze_steganography
+            result["steganography"] = analyze_steganography(filepath)
+        except Exception as e:
+            result["steganography"] = {"error": str(e)}
+    else:
+        result["steganography"] = {"status": "skipped", "reason": "Yüngül rejim (server RAM)"}
 
     try:
         from analyzers.c2pa_analyzer import analyze_c2pa
@@ -169,9 +185,12 @@ def analyze_forensics(filepath):
     except Exception as e:
         result["carved_metadata"] = {"status": "error", "message": str(e)}
 
-    cap_result = generate_caption(filepath)
-    if cap_result.get("caption"):
-        result["caption"] = cap_result["caption"]
+    if not light:
+        cap_result = generate_caption(filepath)
+        if cap_result.get("caption"):
+            result["caption"] = cap_result["caption"]
+    else:
+        result["caption_skipped"] = "BLIP caption yüngül rejimdə deaktivdir"
 
     try:
         from analyzers.software_trace_analyzer import analyze_software_traces
@@ -183,11 +202,18 @@ def analyze_forensics(filepath):
 
     result["summary"] = _build_forensics_summary(result)
 
-    try:
-        from analyzers.forensic_scientific_analyzer import enrich_forensics_report
-        result = enrich_forensics_report(filepath, result)
-    except Exception as e:
-        print(f'  [!] Elmi kriminalistika: {e}', file=sys.stderr)
-        result['scientific_error'] = str(e)
+    if not light:
+        try:
+            from analyzers.forensic_scientific_analyzer import enrich_forensics_report
+            result = enrich_forensics_report(filepath, result)
+        except Exception as e:
+            print(f'  [!] Elmi kriminalistika: {e}', file=sys.stderr)
+            result['scientific_error'] = str(e)
+    else:
+        result['light_mode'] = True
+        result['note_az'] = (
+            'Render yüngül kriminalistika: ELA, PRNU, C2PA, metadata carving. '
+            'BLIP caption, steganografiya və elmi hesabat lokal serverdə aktivdir.'
+        )
 
     return result

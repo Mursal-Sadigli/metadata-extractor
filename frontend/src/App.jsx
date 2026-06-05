@@ -545,6 +545,7 @@ function App() {
     if (!uploadedFile) return;
     setLoadingVision(true);
     setError(null);
+    setVisionData(null);
     try {
       const response = await api.post(
         '/api/vision-ml',
@@ -553,13 +554,15 @@ function App() {
           confidence: 0.16,
           video_frame: videoFrame,
         },
-        { timeout: 600000 }
+        { timeout: 300000 }
       );
       setVisionData(response.data);
     } catch (err) {
-      const msg = err.response?.data?.error
-        || (err.code === 'ECONNABORTED' ? 'Computer Vision analizi çox uzun çəkdi.' : null)
+      const d = err.response?.data;
+      let msg = d?.error
+        || (err.code === 'ECONNABORTED' ? 'AI Vision çox uzun çəkdi (5 dəq limit). Render Free yavaş ola bilər — yenidən cəhd edin.' : null)
         || 'Computer Vision analizi zamanı xəta baş verdi.';
+      if (d?.details) msg += ` (${String(d.details).slice(0, 120)})`;
       setError(msg);
     } finally {
       setLoadingVision(false);
@@ -1070,8 +1073,17 @@ function App() {
 
             {/* NƏTİCƏLƏR */}
             <div className="space-y-5">
+
+              {loadingVision && (
+                <div style={{ ...styles.card('rgba(167,139,250,0.35)'), display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite', color: '#a78bfa' }} />
+                  <p style={{ margin: 0, fontSize: 13, color: '#c4b5fd' }}>
+                    AI Vision analizi gedir — Render Free planda 1–3 dəqiqə çəkə bilər. İlk sorğuda YOLO modeli yüklənir.
+                  </p>
+                </div>
+              )}
               
-              {!exifData && !locationData && !forensicsData && !osintData && !facePrivacyData && !objectDetectionData && !visionData && !restoreData && !socialData && (
+              {!loadingVision && !exifData && !locationData && !forensicsData && !osintData && !facePrivacyData && !objectDetectionData && !visionData && !restoreData && !socialData && (
                 <div style={styles.emptyState} className="cyber-panel">
                   <ShieldAlert style={{width:'40px',height:'40px',color:'#475569',margin:'0 auto 12px',display:'block'}} />
                   <p style={{fontSize:'14px', color:'#64748b', margin:'0 0 4px'}}>Yuxarıdakı OSINT düymələrindən birini seçin</p>

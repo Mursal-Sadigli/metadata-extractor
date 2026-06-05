@@ -163,6 +163,16 @@ _clip_model = None
 _clip_processor = None
 
 
+def _light_vision_enabled() -> bool:
+    """Render / aşağı RAM: CLIP, EasyOCR və ağır YOLO World söndürülür."""
+    val = os.environ.get('LIGHT_VISION', '').strip().lower()
+    if val in ('0', 'false', 'no'):
+        return False
+    if val in ('1', 'true', 'yes'):
+        return True
+    return os.environ.get('RENDER', '').strip().lower() in ('true', '1')
+
+
 def _models_dir():
     return os.path.join(os.path.dirname(__file__), '..', 'models')
 
@@ -213,6 +223,8 @@ def _get_fer_model():
 
 def _get_clip():
     global _clip_model, _clip_processor
+    if _light_vision_enabled():
+        return None, None
     if _clip_model is None:
         try:
             from transformers import CLIPModel, CLIPProcessor
@@ -238,6 +250,8 @@ def _crop_face_bgr(img: np.ndarray, bbox: Dict) -> Optional[np.ndarray]:
 
 def _predict_age_gender(face_bgr: np.ndarray) -> Tuple[str, str, float, float]:
     """Yaş bucket və cins (OpenCV DNN)."""
+    if _light_vision_enabled():
+        return '—', 'Unknown', 0.0, 0.0
     try:
         age_net, gender_net = _get_age_gender_nets()
         blob = cv2.dnn.blobFromImage(
@@ -263,6 +277,8 @@ def _predict_age_gender(face_bgr: np.ndarray) -> Tuple[str, str, float, float]:
 
 def _predict_emotion(face_bgr: np.ndarray) -> Tuple[str, float]:
     """FER+ ONNX — emosiya."""
+    if _light_vision_enabled():
+        return 'neutral', 0.0
     try:
         fer = _get_fer_model()
         if fer is None:
@@ -394,6 +410,16 @@ def _summarize_genders(persons: List[Dict]) -> Dict[str, int]:
 
 
 def _analyze_ocr(img_path: str) -> Dict[str, Any]:
+    if _light_vision_enabled():
+        return {
+            'status': 'skipped',
+            'reason': 'Yüngül rejim (server RAM)',
+            'lines': [],
+            'words': [],
+            'full_text': '',
+            'word_count': 0,
+            'line_count': 0,
+        }
     from analyzers.ai_analyzer import get_reader
     lines = []
     words = []
@@ -696,7 +722,12 @@ def analyze_vision_ml(filepath: str, conf_threshold: float = 0.15) -> Dict[str, 
     if not is_static_image and not is_video:
         return {'status': 'error', 'error': 'Computer Vision yalnız şəkil/GIF/video üçündür.'}
 
-    print('  [i] Computer Vision & ML analizi...', file=sys.stderr)
+    light = _light_vision_enabled()
+    print(
+        f'  [i] Computer Vision & ML analizi...'
+        + (' (yüngül rejim)' if light else ''),
+        file=sys.stderr,
+    )
 
     analysis_path = filepath
     if is_video:
@@ -713,14 +744,15 @@ def analyze_vision_ml(filepath: str, conf_threshold: float = 0.15) -> Dict[str, 
     result: Dict[str, Any] = {
         'status': 'success',
         'analysis_source': os.path.basename(analysis_path),
+        'light_mode': light,
         'models': {
             'faces': 'YuNet+MediaPipe+Haar',
-            'objects': 'YOLOv8m COCO + World',
-            'age_gender': 'OpenCV DNN (Levi)',
-            'emotion': 'FER+ MobileFaceNet',
-            'ocr': 'EasyOCR (az/en/tr)',
-            'scene': 'CLIP ViT-B/32',
-            'brands': 'OCR + CLIP',
+            'objects': 'YOLOv8n COCO' if light else 'YOLOv8m COCO + World',
+            'age_gender': 'deaktiv (yüngül)' if light else 'OpenCV DNN (Levi)',
+            'emotion': 'deaktiv (yüngül)' if light else 'FER+ MobileFaceNet',
+            'ocr': 'deaktiv (yüngül)' if light else 'EasyOCR (az/en/tr)',
+            'scene': 'deaktiv (yüngül)' if light else 'CLIP ViT-B/32',
+            'brands': 'OCR + CLIP' if not light else 'deaktiv (yüngül)',
         },
     }
 
@@ -729,9 +761,18 @@ def analyze_vision_ml(filepath: str, conf_threshold: float = 0.15) -> Dict[str, 
         from analyzers.object_detection_analyzer import detect_objects
         result['objects_coco'] = detect_objects(analysis_path, conf_threshold=conf_threshold)
         result['ocr'] = _analyze_ocr(analysis_path)
-        result['brands_logos'] = _detect_brands(result['ocr'], analysis_path)
-        result['documents'] = _detect_documents(result['ocr'])
-        result['scene'] = _analyze_scene(analysis_path)
+        result['brands_logos'] = (
+            {'count': 0, 'brands': [], 'summary_az': 'Yüngül rejim — deaktiv'}
+            if light else _detect_brands(result['ocr'], analysis_path)
+        )
+        result['documents'] = (
+            {'detected': False, 'summary_az': 'Yüngül rejim — deaktiv'}
+            if light else _detect_documents(result['ocr'])
+        )
+        result['scene'] = (
+            {'status': 'skipped', 'reason': 'Yüngül rejim (server RAM)'}
+            if light else _analyze_scene(analysis_path)
+        )
 
         out_dir = os.path.dirname(os.path.abspath(filepath))
         base = os.path.splitext(os.path.basename(filepath))[0]
@@ -750,10 +791,16 @@ def analyze_vision_ml(filepath: str, conf_threshold: float = 0.15) -> Dict[str, 
     result['motion'] = _analyze_motion(filepath)
 
     result['summary_az'] = _build_summary(result)
-    result['note'] = (
-        'Yaş/cins/emosiya təxminidir — hüquqi identifikasiya üçün istifadə etməyin. '
-        'COCO 80 sinif; brend aşkarlanması OCR+CLIP heuristikasidir.'
-    )
+    if light:
+        result['note'] = (
+            'Render yüngül rejim: üz + əsas obyekt aşkarlanması. '
+            'Tam CLIP/OCR/EasyOCR üçün lokal server istifadə edin.'
+        )
+    else:
+        result['note'] = (
+            'Yaş/cins/emosiya təxminidir — hüquqi identifikasiya üçün istifadə etməyin. '
+            'COCO 80 sinif; brend aşkarlanması OCR+CLIP heuristikasidir.'
+        )
     return result
 
 

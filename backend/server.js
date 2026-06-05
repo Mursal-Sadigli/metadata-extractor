@@ -544,27 +544,27 @@ app.post('/api/vision-ml', (req, res) => {
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Fayl tapılmadı' });
     }
-    const args = [filePath, '--only', 'vision', '--format', 'json', '--quiet'];
-    if (confidence != null) {
-        args.push('--object-confidence', String(Math.min(0.9, Math.max(0.1, Number(confidence) || 0.16))));
-    }
-    if (video_frame != null) {
-        args.push('--video-frame', String(Number(video_frame) || 0));
+    if (video_frame != null && Number(video_frame) > 0) {
+        console.warn('[!] vision_cli video_frame hələ dəstəklənmir, 0 istifadə olunur');
     }
     console.log(`[>>] Computer Vision & ML: ${filename}`);
     const pythonCoreDir = path.join(__dirname, '..', 'python-core');
-    const mainPyPath = path.join(pythonCoreDir, 'main.py');
-    const pythonProcess = spawn(PYTHON_BIN, [mainPyPath, ...args], {
+    const visionCli = path.join(pythonCoreDir, 'vision_cli.py');
+    const conf = confidence != null
+        ? Math.min(0.9, Math.max(0.1, Number(confidence) || 0.16))
+        : 0.16;
+    const spawnArgs = [visionCli, filePath, '--confidence', String(conf)];
+    const pythonProcess = spawn(PYTHON_BIN, spawnArgs, {
         cwd: pythonCoreDir,
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
     let stdoutData = '';
     let stderrData = '';
-    const timeoutMs = 600000;
+    const timeoutMs = 300000;
     const timer = setTimeout(() => {
         pythonProcess.kill();
         if (!res.headersSent) {
-            res.status(504).json({ error: 'Computer Vision analizi vaxtı keçdi (10 dəq)' });
+            res.status(504).json({ error: 'Computer Vision analizi vaxtı keçdi (5 dəq)' });
         }
     }, timeoutMs);
     pythonProcess.stdout.on('data', (d) => { stdoutData += d.toString(); });
@@ -576,11 +576,11 @@ app.post('/api/vision-ml', (req, res) => {
         clearTimeout(timer);
         if (res.headersSent) return;
         if (code !== 0 && stdoutData.trim() === '') {
-            return res.status(500).json({ error: 'Vision analizi xətası', details: stderrData });
+            return res.status(500).json({ error: 'Vision analizi xətası', details: stderrData.slice(0, 500) });
         }
         const result = parsePythonJson(stdoutData);
         if (!result) {
-            return res.status(500).json({ error: 'Python çıxışı oxuna bilmədi', details: stderrData });
+            return res.status(500).json({ error: 'Python çıxışı oxuna bilmədi', details: stderrData.slice(0, 500) });
         }
         res.json(result);
     });

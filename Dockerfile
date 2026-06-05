@@ -15,8 +15,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY python-core/requirements-docker.txt ./python-core/requirements-docker.txt
-RUN pip3 install --no-cache-dir --break-system-packages torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip3 install --no-cache-dir --break-system-packages -r python-core/requirements-docker.txt
+COPY python-core/constraints-docker.txt ./python-core/constraints-docker.txt
+# CPU torch — easyocr/ultralytics CUDA torch (~3GB) çəkməsin
+RUN pip3 install --no-cache-dir --break-system-packages \
+    -r python-core/requirements-docker.txt \
+    -c python-core/constraints-docker.txt \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple
 
 COPY backend/package.json backend/package-lock.json* ./backend/
 RUN cd backend && npm install --omit=dev

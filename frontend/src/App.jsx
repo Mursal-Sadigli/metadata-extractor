@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, Camera, MapPin, ShieldAlert, Globe, Download, Loader2, ArrowLeft, Terminal, FileText, AlertCircle, GitCompare, Archive, Link2, ScanFace, Box, Brain, Sparkles, Music, Film } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
-import { api, API_BASE, getAuthToken } from './apiClient';
+import { api, API_BASE, getAuthToken, normalizeUploadResponse } from './apiClient';
 import AdminLogin from './components/AdminLogin';
 
 import ForensicsPanel from './components/ForensicsPanel';
@@ -404,7 +404,7 @@ function App() {
       const response = await api.post('/api/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setUploadedFile(response.data);
+      setUploadedFile(normalizeUploadResponse(response.data));
     } catch (err) {
       setError('Fayl yüklənərkən xəta baş verdi.');
     } finally {
@@ -705,7 +705,7 @@ function App() {
         { url: raw },
         { timeout: 240000 }
       );
-      setUploadedFile(res.data);
+      setUploadedFile(normalizeUploadResponse(res.data));
       if (res.data.warnings?.length) setUrlWarnings(res.data.warnings);
     } catch (err) {
       const d = err.response?.data;

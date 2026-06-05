@@ -32,13 +32,27 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && getAuthToken()) {
+    const status = error.response?.status;
+    const path = error.config?.url || '';
+    if (status) {
+      console.error(`API ${status}: ${error.config?.method?.toUpperCase() || 'REQ'} ${path}`, error.response?.data || '');
+    }
+    if (status === 401 && getAuthToken()) {
       clearAuthToken();
       window.location.reload();
     }
     return Promise.reject(error);
   }
 );
+
+export function normalizeUploadResponse(data) {
+  if (!data?.filename) return data;
+  const base = data.filename.replace(/\\/g, '/').split('/').pop();
+  return {
+    ...data,
+    url: `${UPLOADS_BASE}/${base}`,
+  };
+}
 
 const existing = getAuthToken();
 if (existing) {

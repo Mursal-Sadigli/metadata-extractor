@@ -240,20 +240,30 @@ app.post('/api/analyze', (req, res) => {
         extraArgs.push('--text', String(req.body.location_text));
     }
 
-    const pythonProcess = spawn(PYTHON_BIN, [
-        mainPyPath, 
-        filePath, 
-        '--only', type, 
-        '--format', 'json', 
-        '--quiet',
-        ...extraArgs,
-    ], {
+    const analyzeCliPath = path.join(pythonCoreDir, 'analyze_cli.py');
+    const useLiteAnalyze = type === 'exif' && fs.existsSync(analyzeCliPath);
+    const scriptPath = useLiteAnalyze ? analyzeCliPath : mainPyPath;
+    const spawnArgs = useLiteAnalyze
+        ? [scriptPath, filePath, '--only', type, '--quiet', ...extraArgs]
+        : [mainPyPath, filePath, '--only', type, '--format', 'json', '--quiet', ...extraArgs];
+
+    const pythonProcess = spawn(PYTHON_BIN, spawnArgs, {
         cwd: pythonCoreDir,
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
 
     let stdoutData = '';
     let stderrData = '';
+    const analyzeTimeoutMs = 180000;
+    const analyzeTimer = setTimeout(() => {
+        pythonProcess.kill();
+        if (!res.headersSent) {
+            res.status(504).json({
+                error: 'Analiz vaxtı keçdi (3 dəq). Render Free planda yenidən cəhd edin.',
+                type,
+            });
+        }
+    }, analyzeTimeoutMs);
 
     pythonProcess.stdout.on('data', (data) => {
         stdoutData += data.toString();
@@ -265,17 +275,24 @@ app.post('/api/analyze', (req, res) => {
     });
 
     pythonProcess.on('close', (code) => {
+        clearTimeout(analyzeTimer);
+        if (res.headersSent) return;
         if (code !== 0 && stdoutData.trim() === '') {
             return res.status(500).json({ 
                 error: 'Analiz zamanı xəta baş verdi', 
-                details: stderrData 
+                details: stderrData.slice(0, 500),
+                type,
             });
         }
 
         const result = parsePythonJson(stdoutData);
         if (!result) {
-            console.error('Gələn data:', stdoutData);
-            return res.status(500).json({ error: 'Python çıxışı oxuna bilmədi' });
+            console.error('Gələn data:', stdoutData.slice(0, 500));
+            return res.status(500).json({
+                error: 'Python çıxışı oxuna bilmədi',
+                details: stderrData.slice(0, 500) || stdoutData.slice(0, 300),
+                type,
+            });
         }
         console.log(`[OK] Analiz bitdi (${type}): ${filename}`);
         res.json(result);

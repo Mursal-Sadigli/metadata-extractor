@@ -666,7 +666,13 @@ function App() {
       });
       setSocialData(res.data);
     } catch (err) {
-      setError('Sosial metadata analizi zamanı xəta baş verdi.');
+      const d = err.response?.data;
+      let msg = d?.error || 'Sosial metadata analizi zamanı xəta baş verdi.';
+      if (d?.details) msg += ` (${String(d.details).slice(0, 150)})`;
+      if (err.code === 'ECONNABORTED') {
+        msg = 'Sosial metadata çox uzun çəkdi — yenidən cəhd edin.';
+      }
+      setError(msg);
     } finally {
       setLoadingSocial(false);
     }

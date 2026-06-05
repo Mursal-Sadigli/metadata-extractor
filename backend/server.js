@@ -729,7 +729,40 @@ app.post('/api/analyze-url', (req, res) => {
         return res.status(400).json({ error: 'URL lazımdır' });
     }
     console.log(`[>>] URL metadata: ${url}`);
-    runPython(['--url', url, '--only', 'social_meta', '--format', 'json', '--quiet'], 'social', res);
+    const pythonCoreDir = path.join(__dirname, '..', 'python-core');
+    const urlSocialCli = path.join(pythonCoreDir, 'url_social_cli.py');
+    const pythonProcess = spawn(PYTHON_BIN, [urlSocialCli, String(url).trim()], {
+        cwd: pythonCoreDir,
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    });
+    let stdoutData = '';
+    let stderrData = '';
+    const timer = setTimeout(() => {
+        pythonProcess.kill();
+        if (!res.headersSent) {
+            res.status(504).json({ error: 'URL sosial analizi vaxtı keçdi (3 dəq)' });
+        }
+    }, 180000);
+    pythonProcess.stdout.on('data', (d) => { stdoutData += d.toString(); });
+    pythonProcess.stderr.on('data', (d) => {
+        stderrData += d.toString();
+        process.stdout.write(`[Python social-url] ${d}`);
+    });
+    pythonProcess.on('close', (code) => {
+        clearTimeout(timer);
+        if (res.headersSent) return;
+        if (code !== 0 && stdoutData.trim() === '') {
+            return res.status(500).json({ error: 'URL sosial analizi xətası', details: stderrData.slice(0, 500) });
+        }
+        const result = parsePythonJson(stdoutData);
+        if (!result) {
+            return res.status(500).json({
+                error: 'Python çıxışı oxuna bilmədi',
+                details: stderrData.slice(0, 500) || stdoutData.slice(0, 300),
+            });
+        }
+        res.json(result);
+    });
 });
 
 /** Google / birbaşa şəkil URL → uploads (sonra Metadata, Lokasiya və s.) */
@@ -812,11 +845,44 @@ app.post('/api/social-meta', (req, res) => {
         return res.status(404).json({ error: 'Fayl tapılmadı' });
     }
     console.log(`[>>] Sosial metadata (fayl): ${filename}`);
-    const args = [filePath, '--only', 'social_meta', '--format', 'json', '--quiet'];
+    const pythonCoreDir = path.join(__dirname, '..', 'python-core');
+    const socialCli = path.join(pythonCoreDir, 'social_meta_cli.py');
+    const spawnArgs = [socialCli, filePath];
     if (video_frame != null) {
-        args.push('--video-frame', String(video_frame));
+        spawnArgs.push('--video-frame', String(video_frame));
     }
-    runPython(args, 'social_meta', res);
+    const pythonProcess = spawn(PYTHON_BIN, spawnArgs, {
+        cwd: pythonCoreDir,
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    });
+    let stdoutData = '';
+    let stderrData = '';
+    const timer = setTimeout(() => {
+        pythonProcess.kill();
+        if (!res.headersSent) {
+            res.status(504).json({ error: 'Sosial metadata analizi vaxtı keçdi (3 dəq)' });
+        }
+    }, 180000);
+    pythonProcess.stdout.on('data', (d) => { stdoutData += d.toString(); });
+    pythonProcess.stderr.on('data', (d) => {
+        stderrData += d.toString();
+        process.stdout.write(`[Python social_meta] ${d}`);
+    });
+    pythonProcess.on('close', (code) => {
+        clearTimeout(timer);
+        if (res.headersSent) return;
+        if (code !== 0 && stdoutData.trim() === '') {
+            return res.status(500).json({ error: 'Sosial metadata xətası', details: stderrData.slice(0, 500) });
+        }
+        const result = parsePythonJson(stdoutData);
+        if (!result) {
+            return res.status(500).json({
+                error: 'Python çıxışı oxuna bilmədi',
+                details: stderrData.slice(0, 500) || stdoutData.slice(0, 300),
+            });
+        }
+        res.json(result);
+    });
 });
 
 // 3. İnstagram Kəşfiyyat Endpoint-i

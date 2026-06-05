@@ -211,12 +211,13 @@ def fetch_profile_metadata(username: str, session_path: Optional[str] = None) ->
 def _login_required_message(username: str) -> str:
     local = os.environ.get('LOCALAPPDATA', '')
     session_hint = os.path.join(local, 'Instaloader', f'session-{username}') if local else ''
+    default_session = r'C:\Users\...\AppData\Local\Instaloader\session-ISTIFADECI'
     return (
         f'Instagram giriş tələb edir (@{username}).\n'
         '1) 15–30 dəqiqə gözləyin (Instagram rate-limit).\n'
         '2) Brauzerdə instagram.com-a daxil olun.\n'
         '3) Terminal: instaloader --login SIZIN_IG_ISTIFADECINIZ\n'
-        f'4) .env: INSTAGRAM_SESSION_FILE={session_hint or "C:\\Users\\...\\AppData\\Local\\Instaloader\\session-ISTIFADECI"}'
+        f'4) .env: INSTAGRAM_SESSION_FILE={session_hint or default_session}'
     )
 
 

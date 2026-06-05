@@ -25,7 +25,8 @@ function loadEnvFile() {
 loadEnvFile();
 
 const app = express();
-const port = 3001;
+const port = Number(process.env.PORT) || 3001;
+const PYTHON_BIN = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
 
 app.use(cors({
     allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization'],
@@ -146,7 +147,7 @@ function parsePythonJson(stdoutData) {
 function runPython(args, label, res) {
     const pythonCoreDir = path.join(__dirname, '..', 'python-core');
     const mainPyPath = path.join(pythonCoreDir, 'main.py');
-    const pythonProcess = spawn('python', [mainPyPath, ...args], {
+    const pythonProcess = spawn(PYTHON_BIN, [mainPyPath, ...args], {
         cwd: pythonCoreDir,
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
@@ -224,7 +225,7 @@ app.post('/api/analyze', (req, res) => {
         extraArgs.push('--text', String(req.body.location_text));
     }
 
-    const pythonProcess = spawn('python', [
+    const pythonProcess = spawn(PYTHON_BIN, [
         mainPyPath, 
         filePath, 
         '--only', type, 
@@ -314,7 +315,7 @@ app.post('/api/propagation-analysis', (req, res) => {
         PYTHONIOENCODING: 'utf-8',
         PUBLIC_APP_URL: process.env.PUBLIC_APP_URL || process.env.PUBLIC_IMAGE_BASE_URL || '',
     };
-    const pythonProcess = spawn('python', [mainPyPath, ...args], {
+    const pythonProcess = spawn(PYTHON_BIN, [mainPyPath, ...args], {
         cwd: pythonCoreDir,
         env,
     });
@@ -370,7 +371,7 @@ app.post('/api/reverse-image-search', (req, res) => {
         PYTHONIOENCODING: 'utf-8',
         PUBLIC_APP_URL: process.env.PUBLIC_APP_URL || process.env.PUBLIC_IMAGE_BASE_URL || '',
     };
-    const pythonProcess = spawn('python', [mainPyPath, ...args], {
+    const pythonProcess = spawn(PYTHON_BIN, [mainPyPath, ...args], {
         cwd: pythonCoreDir,
         env,
     });
@@ -521,7 +522,7 @@ app.post('/api/vision-ml', (req, res) => {
     console.log(`[>>] Computer Vision & ML: ${filename}`);
     const pythonCoreDir = path.join(__dirname, '..', 'python-core');
     const mainPyPath = path.join(pythonCoreDir, 'main.py');
-    const pythonProcess = spawn('python', [mainPyPath, ...args], {
+    const pythonProcess = spawn(PYTHON_BIN, [mainPyPath, ...args], {
         cwd: pythonCoreDir,
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
@@ -569,7 +570,7 @@ app.post('/api/restore-analyze', (req, res) => {
     console.log(`[>>] Şəkil bərpası + metadata/lokasiya: ${filename}`);
     const pythonCoreDir = path.join(__dirname, '..', 'python-core');
     const mainPyPath = path.join(pythonCoreDir, 'main.py');
-    const pythonProcess = spawn('python', [mainPyPath, ...args], {
+    const pythonProcess = spawn(PYTHON_BIN, [mainPyPath, ...args], {
         cwd: pythonCoreDir,
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
@@ -649,7 +650,7 @@ app.post('/api/video-tracking', (req, res) => {
 
     const pythonCoreDir = path.join(__dirname, '..', 'python-core');
     const mainPyPath = path.join(pythonCoreDir, 'main.py');
-    const pythonProcess = spawn('python', [mainPyPath, ...args], {
+    const pythonProcess = spawn(PYTHON_BIN, [mainPyPath, ...args], {
         cwd: pythonCoreDir,
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
@@ -716,7 +717,7 @@ app.post('/api/upload-from-url', (req, res) => {
         '--format', 'json',
         '--quiet',
     ];
-    const pythonProcess = spawn('python', fetchArgs, {
+    const pythonProcess = spawn(PYTHON_BIN, fetchArgs, {
         cwd: pythonCoreDir,
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
@@ -813,7 +814,7 @@ app.post('/api/instagram', (req, res) => {
         pythonArgs.push('--max-posts', String(max_posts));
     }
 
-    const pythonProcess = spawn('python', pythonArgs, { 
+    const pythonProcess = spawn(PYTHON_BIN, pythonArgs, { 
         cwd: pythonCoreDir,
         stdio: ['ignore', 'pipe', 'pipe'], // stdin kapalı, stdout/stderr pipe
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' } // UTF-8 encoding

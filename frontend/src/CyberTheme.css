@@ -1,0 +1,55 @@
+/* Hacker / Cyber Theme */
+.cyber-theme {
+  --bg-color: #050505;
+  --text-color: #00ff41;
+  --panel-bg: rgba(0, 40, 0, 0.4);
+  --border-color: #008f11;
+  --accent-color: #00ff41;
+  --error-color: #ff003c;
+  
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+  font-family: "Courier New", Courier, monospace !important;
+}
+
+.cyber-theme * {
+  box-shadow: none !important;
+}
+
+.cyber-theme .cyber-panel {
+  background: var(--panel-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 4px !important;
+}
+
+.cyber-theme h1, .cyber-theme h2, .cyber-theme h3 {
+  background: none !important;
+  -webkit-text-fill-color: var(--text-color) !important;
+  text-shadow: 0 0 5px var(--text-color);
+  font-weight: bold;
+}
+
+.cyber-theme button {
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
+  border-radius: 2px !important;
+  text-transform: uppercase;
+}
+
+.cyber-theme button:hover {
+  background: var(--border-color) !important;
+  color: #000 !important;
+  box-shadow: 0 0 10px var(--border-color) !important;
+}
+
+/* Glitch effect on header */
+.cyber-glitch {
+  animation: glitch 1s linear infinite;
+}
+
+@keyframes glitch {
+  2%, 64% { transform: translate(2px, 0) skew(0deg); }
+  4%, 60% { transform: translate(-2px, 0) skew(0deg); }
+  62% { transform: translate(0, 0) skew(5deg); }
+}

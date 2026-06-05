@@ -1,0 +1,24 @@
+{
+  "file_info": {
+    "filename": "1780497866406-931120321-20250717_112549.jpg",
+    "filepath": "C:\\Users\\fullm\\Downloads\\metadata-extractor\\backend\\uploads\\1780497866406-931120321-20250717_112549.jpg",
+    "size_bytes": 2924414,
+    "size_human": "2.8 MB",
+    "created": "2026-06-03T18:44:26.412407",
+    "modified": "2026-06-03T18:44:26.440927",
+    "extension": ".jpg"
+  },
+  "type": "image",
+  "osint": {
+    "terrain": {
+      "status": "success",
+      "terrain_image_path": "C:\\Users\\fullm\\Downloads\\metadata-extractor\\backend\\uploads\\terrain_1780497866406-931120321-20250717_112549.jpg",
+      "sift_keypoints_found": 5386,
+      "message": "Bu konturlar peyk axtarış bazasına göndərilə bilər."
+    },
+    "ai": {
+      "faces_detected": 3,
+      "extracted_text": []
+    }
+  }
+}

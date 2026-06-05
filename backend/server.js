@@ -29,7 +29,10 @@ const port = Number(process.env.PORT) || 3001;
 const PYTHON_BIN = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
 
 app.use(cors({
+    origin: true,
+    credentials: true,
     allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
 app.use(express.json());
 
@@ -54,6 +57,10 @@ function isValidAuthToken(token) {
 }
 
 app.use('/api', (req, res, next) => {
+    if (req.method === 'OPTIONS') return next();
+    if (req.method === 'GET' && req.path === '/health') {
+        return res.json({ ok: true });
+    }
     if (req.method === 'POST' && req.path === '/auth/login') {
         const password = String(req.body?.password || '');
         if (password === ADMIN_PASSWORD) {
@@ -717,13 +724,11 @@ app.post('/api/upload-from-url', (req, res) => {
     const trimmed = String(url).trim();
     console.log(`[>>] Şəkil URL yüklənir: ${trimmed.slice(0, 120)}`);
     const pythonCoreDir = path.join(__dirname, '..', 'python-core');
-    const mainPyPath = path.join(pythonCoreDir, 'main.py');
+    const fetchCliPath = path.join(pythonCoreDir, 'fetch_image_cli.py');
     const fetchArgs = [
-        mainPyPath,
-        '--fetch-image-url', trimmed,
+        fetchCliPath,
+        trimmed,
         '--upload-dir', uploadDir,
-        '--format', 'json',
-        '--quiet',
     ];
     const pythonProcess = spawn(PYTHON_BIN, fetchArgs, {
         cwd: pythonCoreDir,

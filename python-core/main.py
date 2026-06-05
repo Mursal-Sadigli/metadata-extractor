@@ -26,9 +26,6 @@ from analyzers.geolocation_analyzer import (
     apply_best_guess_to_location,
 )
 from analyzers.language_analyzer import analyze_language, analyze_multiple_texts
-from analyzers.ai_analyzer import analyze_image_ai
-from analyzers.astronomy_analyzer import analyze_sun_position
-from analyzers.terrain_analyzer import extract_skyline_and_terrain
 from downloaders.url_downloader import is_url, download_from_url
 from reporters.json_reporter import save_single_result, save_batch_results, print_summary
 from reporters.csv_reporter import save_csv_report
@@ -76,6 +73,7 @@ def process_file(filepath, args):
 
     if args.only == 'ai':
         if file_type == 'image':
+            from analyzers.ai_analyzer import analyze_image_ai
             ai_res = analyze_image_ai(filepath)
             # OCR mətnini dil analizi edək
             lang_res = None
@@ -290,6 +288,8 @@ def process_file(filepath, args):
                 }
             if args.only == 'osint' and frame_path:
                 from analyzers.osint_analyzer import analyze_osint
+                from analyzers.terrain_analyzer import extract_skyline_and_terrain
+                from analyzers.ai_analyzer import analyze_image_ai
                 osint_res = analyze_osint(frame_path, img_meta)
                 terr_res = extract_skyline_and_terrain(frame_path)
                 if terr_res.get('status') == 'success':
@@ -374,6 +374,7 @@ def process_file(filepath, args):
                         or result['exif']['datetime'].get('inferred_from_filename')
                     )
                     if dt:
+                        from analyzers.astronomy_analyzer import analyze_sun_position
                         astro = analyze_sun_position(lat, lon, dt)
                         if astro and "error" not in astro:
                             location['astronomy'] = astro
@@ -501,6 +502,7 @@ def process_file(filepath, args):
                         stego_res['stego_score'] = max(stego_res.get('stego_score', 0), 60)
                         stego_res['suspicious'] = stego_res['stego_score'] >= 55
 
+            from analyzers.ai_analyzer import analyze_image_ai
             ai_res = analyze_image_ai(filepath)
             if ai_res:
                 osint_res['ai'] = ai_res
@@ -527,6 +529,7 @@ def process_file(filepath, args):
                     or result['exif']['datetime'].get('inferred_from_filename')
                 )
                 if dt:
+                    from analyzers.astronomy_analyzer import analyze_sun_position
                     astro = analyze_sun_position(lat, lon, dt)
                     if astro and "error" not in astro:
                         result['location']['astronomy'] = astro
@@ -538,11 +541,13 @@ def process_file(filepath, args):
                     result['location']['reverse_weather'] = rw
 
     if file_type == 'image':
+        from analyzers.terrain_analyzer import extract_skyline_and_terrain
         terr_res = extract_skyline_and_terrain(filepath)
         if terr_res.get('status') == 'success':
             result['terrain'] = terr_res
 
     if args.ai and file_type == 'image':
+        from analyzers.ai_analyzer import analyze_image_ai
         ai_res = analyze_image_ai(filepath)
         if ai_res: result['ai'] = ai_res
 

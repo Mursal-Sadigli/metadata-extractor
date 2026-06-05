@@ -354,7 +354,6 @@ function App() {
   // Səhifə açılışında və bağlananda müvəqqəti faylları sil (yalnız girişdən sonra)
   useEffect(() => {
     if (!authed) return undefined;
-    cleanupUploads();
     const onLeave = () => {
       const token = getAuthToken();
       fetch(`${API_BASE}/api/cleanup-uploads`, {
@@ -496,10 +495,16 @@ function App() {
         filename,
         type: type,
         video_frame: frameIndex,
-      });
+      }, { timeout: 300000 });
       setData(response.data);
     } catch (err) {
-      setError(`${type.toUpperCase()} analizi zamanı xəta baş verdi.`);
+      const d = err.response?.data;
+      let msg = d?.error || `${type.toUpperCase()} analizi zamanı xəta baş verdi.`;
+      if (d?.details) msg += ` (${String(d.details).slice(0, 150)})`;
+      if (err.code === 'ECONNABORTED') {
+        msg = 'Analiz çox uzun çəkdi. Render Free planda ilk sorğu yavaş ola bilər — yenidən cəhd edin.';
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -702,7 +707,6 @@ function App() {
       );
       setUploadedFile(res.data);
       if (res.data.warnings?.length) setUrlWarnings(res.data.warnings);
-      await analyze('exif', 0, res.data.filename);
     } catch (err) {
       const d = err.response?.data;
       let msg = d?.error || err.message || 'Şəkil URL yüklənmədi.';

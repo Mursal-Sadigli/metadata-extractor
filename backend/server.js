@@ -28,8 +28,45 @@ const app = express();
 const port = Number(process.env.PORT) || 3001;
 const PYTHON_BIN = process.env.PYTHON_BIN || (process.platform === 'win32' ? 'python' : 'python3');
 
+const CORS_EXTRA_ORIGINS = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+function isAllowedOrigin(origin) {
+    if (!origin) return true;
+    if (CORS_EXTRA_ORIGINS.includes(origin)) return true;
+    if (/^https:\/\/[\w.-]+\.vercel\.app$/i.test(origin)) return true;
+    if (/^https:\/\/[\w.-]+\.onrender\.com$/i.test(origin)) return true;
+    if (/^http:\/\/localhost(:\d+)?$/i.test(origin)) return true;
+    if (/^http:\/\/127\.0\.0\.1(:\d+)?$/i.test(origin)) return true;
+    return CORS_EXTRA_ORIGINS.length === 0;
+}
+
+/** OOM/502 olanda belə CORS başlığı qalsın (Vercel smartmetadata.vercel.app) */
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && isAllowedOrigin(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, Authorization');
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+    next();
+});
+
 app.use(cors({
-    origin: true,
+    origin(origin, callback) {
+        if (!origin || isAllowedOrigin(origin)) {
+            callback(null, true);
+        } else {
+            callback(null, false);
+        }
+    },
     credentials: true,
     allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -241,11 +278,15 @@ app.post('/api/analyze', (req, res) => {
     }
 
     const analyzeCliPath = path.join(pythonCoreDir, 'analyze_cli.py');
-    const useLiteAnalyze = type === 'exif' && fs.existsSync(analyzeCliPath);
-    const scriptPath = useLiteAnalyze ? analyzeCliPath : mainPyPath;
-    const spawnArgs = useLiteAnalyze
-        ? [scriptPath, filePath, '--only', type, '--quiet', ...extraArgs]
-        : [mainPyPath, filePath, '--only', type, '--format', 'json', '--quiet', ...extraArgs];
+    const osintCliPath = path.join(pythonCoreDir, 'osint_cli.py');
+    let spawnArgs;
+    if (type === 'exif' && fs.existsSync(analyzeCliPath)) {
+        spawnArgs = [analyzeCliPath, filePath, '--only', type, '--quiet', ...extraArgs];
+    } else if (type === 'osint' && fs.existsSync(osintCliPath)) {
+        spawnArgs = [osintCliPath, filePath];
+    } else {
+        spawnArgs = [mainPyPath, filePath, '--only', type, '--format', 'json', '--quiet', ...extraArgs];
+    }
 
     const pythonProcess = spawn(PYTHON_BIN, spawnArgs, {
         cwd: pythonCoreDir,

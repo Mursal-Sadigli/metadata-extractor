@@ -157,12 +157,25 @@ class ImageExtractor(BaseExtractor):
 
         return self._finalize_image_result(result, filepath)
 
+    def _server_light_mode(self) -> bool:
+        if os.environ.get('SKIP_HEAVY_ENRICH', '').strip().lower() in ('1', 'true', 'yes'):
+            return True
+        if os.environ.get('LIGHT_VISION', '').strip().lower() in ('1', 'true', 'yes'):
+            return True
+        if os.environ.get('LIGHT_OSINT', '').strip().lower() in ('1', 'true', 'yes'):
+            return True
+        return os.environ.get('RENDER', '').strip().lower() in ('true', '1')
+
     def _finalize_image_result(self, result, filepath):
         try:
             from analyzers.web_image_metadata import enrich_web_image_metadata
             enrich_web_image_metadata(result, filepath)
         except Exception as e:
             print(f'  [!] Web metadata enrich: {e}', file=sys.stderr)
+        if self._server_light_mode():
+            result['warnings'] = self._build_warnings(filepath, result)
+            result['light_enrich'] = True
+            return result
         try:
             from analyzers.residual_metadata_recovery import recover_residual_metadata
             recover_residual_metadata(result, filepath)

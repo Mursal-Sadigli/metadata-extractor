@@ -34,8 +34,10 @@ WORKDIR /app/backend
 ENV NODE_ENV=production
 ENV PYTHONIOENCODING=utf-8
 ENV PYTHON_BIN=python3
-# Render RAM limiti — AI Vision yüngül rejim
+# Render RAM limiti (~512MB Free) — ağır ML söndürülür
 ENV LIGHT_VISION=1
+ENV LIGHT_OSINT=1
+ENV SKIP_HEAVY_ENRICH=1
 ENV YOLO_MODEL=yolov8n.pt
 ENV YOLO_WORLD=0
 ENV YOLO_TILED=0

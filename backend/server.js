@@ -92,6 +92,14 @@ function clearUploadDir() {
 ensureUploadDir();
 clearUploadDir();
 
+function publicUploadUrl(filename) {
+    const pubBase = process.env.PUBLIC_APP_URL || process.env.PUBLIC_IMAGE_BASE_URL;
+    const base = pubBase
+        ? pubBase.replace(/\/$/, '')
+        : `http://localhost:${port}`;
+    return `${base}/uploads/${path.basename(filename)}`;
+}
+
 // Şəkil önizləməsi (yalnız aktiv sessiya üçün)
 app.use('/uploads', express.static(uploadDir));
 
@@ -195,7 +203,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     res.json({ 
         filename: req.file.filename, 
         originalName: req.file.originalname,
-        url: `http://localhost:3001/uploads/${req.file.filename}`
+        url: publicUploadUrl(req.file.filename),
     });
 });
 
@@ -761,7 +769,7 @@ app.post('/api/upload-from-url', (req, res) => {
         res.json({
             filename: result.filename,
             originalName: result.originalName || result.filename,
-            url: `http://localhost:${port}/uploads/${result.filename}`,
+            url: publicUploadUrl(result.filename),
             source: result.source || 'image_url',
             source_url: result.source_url,
             resolved_url: result.resolved_url,

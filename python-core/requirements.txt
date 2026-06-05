@@ -13,6 +13,7 @@ easyocr>=1.7.1
 opencv-python>=4.8.0
 pandas>=2.0.0
 pysolar>=0.11
+pytz>=2024.1
 imutils>=0.5.4
 numpy>=1.24.0
 instaloader>=4.12.0

@@ -40,7 +40,7 @@ function isAllowedOrigin(origin) {
     if (/^https:\/\/[\w.-]+\.onrender\.com$/i.test(origin)) return true;
     if (/^http:\/\/localhost(:\d+)?$/i.test(origin)) return true;
     if (/^http:\/\/127\.0\.0\.1(:\d+)?$/i.test(origin)) return true;
-    return CORS_EXTRA_ORIGINS.length === 0;
+    return true;
 }
 
 /** OOM/502 olanda belə CORS başlığı qalsın (Vercel smartmetadata.vercel.app) */
@@ -280,6 +280,7 @@ app.post('/api/analyze', (req, res) => {
     const analyzeCliPath = path.join(pythonCoreDir, 'analyze_cli.py');
     const osintCliPath = path.join(pythonCoreDir, 'osint_cli.py');
     const forensicsCliPath = path.join(pythonCoreDir, 'forensics_cli.py');
+    const locationCliPath = path.join(pythonCoreDir, 'location_cli.py');
     let spawnArgs;
     if (type === 'exif' && fs.existsSync(analyzeCliPath)) {
         spawnArgs = [analyzeCliPath, filePath, '--only', type, '--quiet', ...extraArgs];
@@ -287,6 +288,11 @@ app.post('/api/analyze', (req, res) => {
         spawnArgs = [osintCliPath, filePath];
     } else if (type === 'forensics' && fs.existsSync(forensicsCliPath)) {
         spawnArgs = [forensicsCliPath, filePath];
+    } else if (type === 'location' && fs.existsSync(locationCliPath)) {
+        spawnArgs = [locationCliPath, filePath];
+        if (req.body.location_text) {
+            spawnArgs.push('--text', String(req.body.location_text));
+        }
     } else {
         spawnArgs = [mainPyPath, filePath, '--only', type, '--format', 'json', '--quiet', ...extraArgs];
     }
@@ -1029,6 +1035,18 @@ app.post('/api/instagram', (req, res) => {
         }
     });
 });
+app.use((err, req, res, _next) => {
+    const origin = req.headers.origin;
+    if (origin && isAllowedOrigin(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    console.error('[-] Express xətası:', err.message);
+    if (!res.headersSent) {
+        res.status(500).json({ error: err.message || 'Server xətası' });
+    }
+});
+
 const server = app.listen(port, () => {
     console.log(`\n🚀 Backend server işləyir: http://localhost:${port}`);
     console.log('Dayandırmaq üçün: Ctrl+C\n');
